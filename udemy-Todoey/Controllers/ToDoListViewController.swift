@@ -7,32 +7,46 @@
 //
 
 import UIKit
+import CoreData
 
 class ToDoListViewController: UITableViewController {
 
     var itemArray = [Item]()
     
-//    let defaults = UserDefaults.standard
+    let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
+
+    //appena viene riempita con i dati del precedente VC si cerca i risultati:
+    var selectedCategory : Category? {
+        didSet {
+            //questa func sta usando il parametro di default
+            loadItems()
+        }
+    }
+    
     
     
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        let newItem = Item()
-        newItem.title = "Ironman"
-        itemArray.append(newItem)
-        
-        let newItem1 = Item()
-        newItem1.title = "Warmachine"
-        itemArray.append(newItem1)
-        
-        let newItem2 = Item()
-        newItem2.title = "black Widow"
-        itemArray.append(newItem2)
+        //dove vengono salvati i dati nell'app, per leggere il database potresti avere un'applciazione che lo facci
+        print(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask))
         
         
     }
 
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        
+        if let name = self.selectedCategory?.name {
+            self.title = name
+        }
+        
+        
+    }
+    
+    
     
     //MARK: - datasource methods
     
@@ -65,6 +79,11 @@ class ToDoListViewController: UITableViewController {
         
         self.itemArray[indexPath.row].done = !self.itemArray[indexPath.row].done
         
+//        self.context.delete(self.itemArray[indexPath.row])
+//        self.itemArray.remove(at: indexPath.row)
+//
+        
+        self.saveItems()
         
 //        if tableView.cellForRow(at: indexPath)?.accessoryType == .checkmark {
 //            tableView.cellForRow(at: indexPath)?.accessoryType = .none
@@ -91,11 +110,16 @@ class ToDoListViewController: UITableViewController {
         
         let action = UIAlertAction(title: "Add Item", style: .default) { (action) in
             
-            let newItem = Item()
+            
+            let newItem = Item(context: self.context)
             guard globalTxField.text != nil else {return}
             newItem.title = globalTxField.text!
+            newItem.done = false
+            newItem.parentCategory = self.selectedCategory // 1/2 qui impieghiamo la relazione con la Category
             
             self.itemArray.append(newItem)
+            
+            self.saveItems()
             
             self.tableView.reloadData()
 
@@ -111,6 +135,82 @@ class ToDoListViewController: UITableViewController {
         
     }
     
+    func saveItems() {
+        
+        do {
+            try context.save()
+        } catch {
+            print("wraning: \(error)")
+        }
+        
+        self.tableView.reloadData()
+    }
+    
+    func loadItems(with request: NSFetchRequest<Item> = Item.fetchRequest(), predicate: NSPredicate? = nil) {
+        //qui sopra "= Item.fetchRequest()" è un valore di default
+        
+        // 2/2 qui impostiamo un filtro che, vi sia o meno in precedenza, richiama i diati in base al nome della categoria:
+        let categoryPredicate = NSPredicate(format: "parentCategory.name MATCHES %@", selectedCategory!.name!)
+        
+        if let additionalPredicate = predicate {
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [categoryPredicate, additionalPredicate])
+        } else {
+            request.predicate = categoryPredicate
+        }
+        
 
+        do {
+            self.itemArray = try context.fetch(request)
+//            let sortDescriptor = NSSortDescriptor(key: "title", ascending: true)
+//            request.sortDescriptors = [sortDescriptor]
+        } catch {
+            print("WARNING: \(error)")
+        }
+        
+        tableView.reloadData()
+        
+    }
+    
+    
+    
+    
+}
+
+
+
+
+extension ToDoListViewController : UISearchBarDelegate {
+    
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        
+        let request : NSFetchRequest<Item> = Item.fetchRequest()
+        
+        let predicate = NSPredicate(format: "title CONTAINS[cd] %@", searchBar.text!)
+//        request.predicate = predicate /7inutile qui, inserita come argomento in loadItems()
+        
+        let sortDescriptor = NSSortDescriptor(key: "title", ascending: true)
+        request.sortDescriptors = [sortDescriptor]
+        
+        loadItems(with: request, predicate: predicate)
+        
+    }
+    
+    
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        
+        if searchBar.text?.count == 0 {
+            
+            loadItems()
+            
+            DispatchQueue.main.async {
+                searchBar.resignFirstResponder()
+            }
+            
+        }
+        
+    }
+    
+    
+    
 }
 
