@@ -8,16 +8,28 @@
 
 import UIKit
 import CoreData
+import RealmSwift
 
 class CatergoryTBLVController: UITableViewController {
+    
+    
+    //realm
+    let realm = try! Realm()
+    
+    
+    
     
     
     let kCellId = "CategoryCell"
     let kToDoVCID = "ToDoListViewController"
     
-    var categories = [Category]()
+//    var categories = [Category]()
     
-    let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
+    var categories : Results<Category>?
+
+    
+    //commentato per uso di realm
+//    let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
 
     
     
@@ -30,11 +42,25 @@ class CatergoryTBLVController: UITableViewController {
 
     
     
-   
-    func saveItems() {
+   //con coreDAta
+//    func saveItems() {
+//
+//        do {
+//            try context.save()
+//        } catch {
+//            print("wraning: \(error)")
+//        }
+//
+//        self.tableView.reloadData()
+//    }
+    
+    
+    func save(category: Category) {
         
         do {
-            try context.save()
+            try realm.write {
+                realm.add(category)
+            }
         } catch {
             print("wraning: \(error)")
         }
@@ -43,22 +69,28 @@ class CatergoryTBLVController: UITableViewController {
     }
     
     
+    //commentato per uso di realm
+//    func loadCategory(with request: NSFetchRequest<Category> = Category.fetchRequest()) {
+//        //qui sopra "= Category.fetchRequest()" è un valore di default
+//
+//        do {
+//            self.categories = try context.fetch(request)
+//            //            let sortDescriptor = NSSortDescriptor(key: "title", ascending: true)
+//            //            request.sortDescriptors = [sortDescriptor]
+//        } catch {
+//            print("WARNING: \(error)")
+//        }
+//
+//        tableView.reloadData()
+//
+//    }
     
-    func loadCategory(with request: NSFetchRequest<Category> = Category.fetchRequest()) {
-        //qui sopra "= Category.fetchRequest()" è un valore di default
+    func loadCategory() {
         
-        do {
-            self.categories = try context.fetch(request)
-            //            let sortDescriptor = NSSortDescriptor(key: "title", ascending: true)
-            //            request.sortDescriptors = [sortDescriptor]
-        } catch {
-            print("WARNING: \(error)")
-        }
-        
+        categories = realm.objects(Category.self)
         tableView.reloadData()
-        
-    }
 
+    }
     
     
    
@@ -70,14 +102,17 @@ class CatergoryTBLVController: UITableViewController {
         
         let action = UIAlertAction(title: "Add Category", style: .default) { (action) in
             
-            
-            let newCategory = Category(context: self.context)
+            //coreData
+//            let newCategory = Category(context: self.context)
+            //realm
+            let newCategory = Category()
             guard globalTxField.text != nil else {return}
             newCategory.name = globalTxField.text!
             
-            self.categories.append(newCategory)
+            //commentato visto che in realm si aggironano automaticamente
+//            self.categories.append(newCategory)
             
-            self.saveItems()
+            self.save(category: newCategory)
             
             self.tableView.reloadData()
             
@@ -107,7 +142,11 @@ extension CatergoryTBLVController {
     
     
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return categories.count
+//        return categories.count
+        
+        //realm
+        return categories?.count ?? 1 //coaleshing operator
+
     }
     
     
@@ -115,8 +154,11 @@ extension CatergoryTBLVController {
         
         let cell = tableView.dequeueReusableCell(withIdentifier: self.kCellId, for: indexPath)
         
-        cell.textLabel?.text = self.categories[indexPath.row].name
-        
+//        cell.textLabel?.text = self.categories[indexPath.row].name
+
+        //realm
+        cell.textLabel?.text = self.categories?[indexPath.row].name ?? "No Categories added yet"
+
         return cell
     }
     
@@ -143,8 +185,10 @@ extension CatergoryTBLVController {
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         
-        pushShowNextVC(categoryToPass: self.categories[indexPath.row])
+//        pushShowNextVC(categoryToPass: self.categories[indexPath.row])
         
+        pushShowNextVC(categoryToPass: self.categories?[indexPath.row] ?? Category())
+
     }
     
     
